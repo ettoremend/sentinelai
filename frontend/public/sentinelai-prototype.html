@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SentinelAI - Intelligent Cloud AppSec Platform</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #090d16;
+            color: #f1f5f9;
+            font-family: 'Inter', sans-serif;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(14, 165, 233, 0.08) 0%, transparent 40%);
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+
+        .glass-panel {
+            background: rgba(17, 24, 39, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+        }
+
+        .glass-card {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.6) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-card:hover {
+            border-color: rgba(99, 102, 241, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.15);
+        }
+
+        .terminal-text {
+            font-family: 'Fira Code', monospace;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(9, 13, 22, 0.5); }
+        ::-webkit-scrollbar-thumb { background: rgba(51, 65, 85, 0.8); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.8); }
+    </style>
+</head>
+<body class="antialiased selection:bg-indigo-500 selection:text-white">
+
+    <nav class="glass-panel sticky top-0 z-50 px-6 py-4 flex justify-between items-center border-b border-slate-800">
+        <div class="flex items-center gap-3 cursor-pointer group" onclick="navigateTo('home')">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/25 group-hover:scale-105 transition">
+                <i class="fa-solid fa-shield-halved text-lg"></i>
+            </div>
+            <div>
+                <span class="text-lg font-extrabold tracking-wide text-white">Sentinel<span class="text-indigo-400">AI</span></span>
+                <span class="block text-[10px] text-slate-400 font-mono tracking-widest uppercase">Cloud AppSec v2.4</span>
+            </div>
+        </div>
+        <div class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
+            <a href="#" onclick="navigateTo('home')" class="hover:text-indigo-400 transition">Platform</a>
+            <a href="#" onclick="navigateTo('lab')" class="hover:text-indigo-400 transition flex items-center gap-1.5"><i class="fa-solid fa-flask text-xs text-indigo-400"></i> SentinelLab</a>
+            <a href="#" onclick="navigateTo('architecture')" class="hover:text-indigo-400 transition">Cloud Architecture</a>
+            <a href="#" onclick="navigateTo('docs')" class="hover:text-indigo-400 transition">TCC Docs</a>
+        </div>
+        <div class="flex items-center gap-3">
+            <button onclick="openDemoScan()" class="px-4 py-2 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-lg shadow-indigo-500/30 flex items-center gap-2">
+                <i class="fa-solid fa-play text-[10px]"></i> Quick Demo Scan
+            </button>
+        </div>
+    </nav>
+
+    <main id="app-container" class="container mx-auto px-4 sm:px-6 py-8 min-h-[calc(100vh-80px)]">
+        <!-- Dynamic views rendered via JavaScript -->
+    </main>
+
+    <script>
+        // --- APPLICATION STATE ---
+        const state = {
+            currentView: 'home', // 'home', 'scanning', 'fixing', 'dashboard', 'lab', 'architecture', 'docs'
+            targetUrl: 'https://sentinellab.local/api/v1',
+            isFixed: false,
+            selectedVulnId: 'vuln-sql',
+            activeTab: 'technical',
+            scanLogs: [],
+            fixLogs: []
+        };
+
+        // --- MOCK DATA ---
+        const vulnerabilitiesData = [
+            {
+                id: 'vuln-sql',
+                type: 'SQL Injection (SQLi)',
+                severity: 'CRITICAL',
+                severityColor: 'text-red-400',
+                severityBg: 'bg-red-500/10 border-red-500/20',
+                endpoint: '/api/v1/auth/login',
+                parameter: 'username',
+                cwe: 'CWE-89',
+                confidence: '99%',
+                ai_beginner: 'O formulário de login confia diretamente nos dados digitados pelo usuário. Um atacante pode digitar caracteres especiais para enganar o sistema e acessar a conta de qualquer usuário sem saber a senha.',
+                ai_technical: 'O parâmetro de entrada "username" é concatenado diretamente na string de consulta SQL sem parametrização ou escape adequado na camada de persistência. Permite alteração lógica da query subjacente.',
+                ai_remediation: `// ❌ CÓDIGO VULNERÁVEL (Concatenação Direta)
+String query = "SELECT * FROM users WHERE username = '" + username + "'";
+Statement stmt = conn.createStatement();
+ResultSet rs = stmt.executeQuery(query);
+
+// ✅ CÓDIGO CORRIGIDO PELO SENTINELAI (Prepared Statements)
+String query = "SELECT * FROM users WHERE username = ?";
+PreparedStatement pstmt = conn.prepareStatement(query);
+pstmt.setString(1, username);
+ResultSet rs = pstmt.executeQuery();`
+            },
+            {
+                id: 'vuln-xss',
+                type: 'Stored Cross-Site Scripting (XSS)',
+                severity: 'HIGH',
+                severityColor: 'text-amber-400',
+                severityBg: 'bg-amber-500/10 border-amber-500/20',
+                endpoint: '/dashboard/profile/bio',
+                parameter: 'bio_description',
+                cwe: 'CWE-79',
+                confidence: '95%',
+                ai_beginner: 'O site aceita textos formatados em HTML salvos no perfil do usuário e os exibe para outros visitantes sem limpeza prévia. Scripts maliciosos podem roubar sessões de quem visualizar a página.',
+                ai_technical: 'Identificado Stored XSS onde payloads JavaScript injetados na bio são persistidos no banco de dados e refletidos no DOM do cliente através de renderização insegura (ex: dangerouslySetInnerHTML).',
+                ai_remediation: `// ❌ CÓDIGO VULNERÁVEL (React / DOM)
+<div dangerouslySetInnerHTML={{ __html: userBio }} />
+
+// ✅ CÓDIGO CORRIGIDO PELO SENTINELAI (Sanitização Robusta)
+import DOMPurify from 'dompurify';
+
+const safeBio = DOMPurify.sanitize(userBio);
+<div dangerouslySetInnerHTML={{ __html: safeBio }} />
+// Ou utilize renderização padrão de texto do framework:
+<div>{userBio}</div>`
+            },
+            {
+                id: 'vuln-headers',
+                type: 'Missing Security Headers (HSTS & CSP)',
+                severity: 'MEDIUM',
+                severityColor: 'text-blue-400',
+                severityBg: 'bg-blue-500/10 border-blue-500/20',
+                endpoint: 'Global Response Headers',
+                parameter: 'HTTP Response',
+                cwe: 'CWE-693',
+                confidence: '100%',
+                ai_beginner: 'O servidor não envia instruções fundamentais de segurança para o navegador do usuário, deixando a aplicação vulnerável a ataques de interceptação e carregamento de scripts externos não autorizados.',
+                ai_technical: 'Ausência dos cabeçalhos HTTP Content-Security-Policy (CSP), Strict-Transport-Security (HSTS) e X-Content-Type-Options na resposta do servidor.',
+                ai_remediation: `// ✅ CÓDIGO CORRIGIDO (Node.js / Express com Helmet)
+const express = require('express');
+const helmet = require('helmet');
+const app = express();
+
+// Ativa automaticamente o conjunto de cabeçalhos recomendados pela OWASP
+app.use(helmet());
+
+app.use(
+  helmet.contentSecurityPolicy({
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+    },
+  })
+);`
+            },
+            {
+                id: 'vuln-sca',
+                type: 'Vulnerable Third-Party Dependency (SCA)',
+                severity: 'MEDIUM',
+                severityColor: 'text-yellow-400',
+                severityBg: 'bg-yellow-500/10 border-yellow-500/20',
+                endpoint: '/package.json',
+                parameter: 'lodash@4.17.15',
+                cwe: 'CWE-1357',
+                confidence: '98%',
+                ai_beginner: 'O projeto utiliza uma biblioteca de código aberto desatualizada que possui falhas de segurança conhecidas publicamente.',
+                ai_technical: 'A biblioteca Lodash versão 4.17.15 possui vulnerabilidade conhecida de Prototype Pollution (CVE-2020-8203).',
+                ai_remediation: `# Execute no terminal do projeto para atualizar a dependência:
+npm install lodash@latest --save
+
+# Ou atualize manualmente no package.json:
+"dependencies": {
+  "lodash": "^4.17.21"
+}`
+            }
+        ];
+
+        // --- NAVIGATION & ROUTING ---
+        function navigateTo(view) {
+            state.currentView = view;
+            render();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function openDemoScan() {
+            state.targetUrl = 'https://sentinellab.local/api/v1';
+            state.currentView = 'scanning';
+            state.scanLogs = [];
+            render();
+            runScanSimulation();
+        }
+
+        // --- RENDER MASTER FUNCTION ---
+        function render() {
+            const container = document.getElementById('app-container');
+            container.innerHTML = '';
+
+            switch (state.currentView) {
+                case 'home':
+                    container.innerHTML = renderHomeView();
+                    break;
+                case 'scanning':
+                    container.innerHTML = renderTerminalView('Iniciando Análise de Segurança', 'fa-shield-virus text-indigo-400', state.scanLogs);
+                    break;
+                case 'fixing':
+                    container.innerHTML = renderTerminalView('Aplicando Plano de Correção IA', 'fa-wand-magic-sparkles text-emerald-400', state.fixLogs);
+                    break;
+                case 'dashboard':
+                    container.innerHTML = renderDashboardView();
+                    break;
+                case 'lab':
+                    container.innerHTML = renderLabView();
+                    break;
+                case 'architecture':
+                    container.innerHTML = renderArchitectureView();
+                    break;
+                case 'docs':
+                    container.innerHTML = renderDocsView();
+                    break;
+                default:
+                    container.innerHTML = renderHomeView();
+            }
+        }
+
+        // --- VIEW 1: HOME PAGE ---
+        function renderHomeView() {
+            return `
+                <div class="max-w-6xl mx-auto pt-8 pb-16 animate-fade-in">
+                    <!-- Hero Section -->
+                    <div class="text-center max-w-3xl mx-auto mb-16">
+                        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-panel text-indigo-300 text-xs font-semibold mb-6 border-indigo-500/30 shadow-[0_0_20px_rgba(99,102,241,0.2)]">
+                            <i class="fa-solid fa-sparkles text-indigo-400"></i> Plataforma Inteligente em Nuvem para TCC & AppSec
+                        </div>
+                        <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight text-white mb-6 leading-tight">
+                            Segurança Web Baseada em <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-cyan-300 to-emerald-400">Inteligência Artificial</span>
+                        </h1>
+                        <p class="text-slate-400 text-base sm:text-lg mb-8 leading-relaxed">
+                            Combine scanners tradicionais (DAST/SAST/SCA), modelos de linguagem (LLM) e arquitetura RAG para detectar, priorizar e corrigir vulnerabilidades em aplicações web em tempo recorde.
+                        </p>
+
+                        <!-- URL Input Card -->
+                        <div class="glass-panel p-2 rounded-2xl flex flex-col sm:flex-row items-center gap-2 border-slate-700 shadow-2xl">
+                            <div class="flex items-center px-4 py-3 w-full sm:w-auto flex-grow">
+                                <i class="fa-solid fa-globe text-slate-500 mr-3"></i>
+                                <input type="text" id="home-url-input" value="${state.targetUrl}" 
+                                    class="w-full bg-transparent border-none outline-none text-white text-sm sm:text-base placeholder-slate-500 font-mono"
+                                    placeholder="https://sua-aplicacao.com/api">
+                            </div>
+                            <button onclick="handleStartScan()" class="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold text-sm transition shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-radar"></i> Analisar Alvo
+                            </button>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-3 font-mono">💡 Dica TCC: Utilize o ambiente controlado <span class="text-indigo-400 cursor-pointer underline" onclick="navigateTo('lab')">SentinelLab</span> para testes seguros.</p>
+                    </div>
+
+                    <!-- Core Pillars / Architecture Highlights -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+                        <div class="glass-card p-6 rounded-2xl border border-slate-800">
+                            <div class="w-12 h-12 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-xl mb-4 border border-indigo-500/20">
+                                <i class="fa-solid fa-network-wired"></i>
+                            </div>
+                            <h3 class="text-lg font-bold text-white mb-2">Security Orchestrator</h3>
+                            <p class="text-slate-400 text-sm leading-relaxed">Executa varreduras automatizadas DAST, SAST e análise de dependências (SCA) em infraestrutura cloud distribuída.</p>
+                        </div>
+
+                        <div class="glass-card p-6 rounded-2xl border border-slate-800">
+                            <div class="w-12 h-12 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-xl mb-4 border border-cyan-500/20">
+                                <i class="fa-solid fa-brain"></i>
+                            </div>
+                            <h3 class="text-lg font-bold text-white mb-2">AI Security Explainer</h3>
+                            <p class="text-slate-400 text-sm leading-relaxed">Utiliza RAG (Retrieval-Augmented Generation) com base de conhecimento OWASP para gerar explicações didáticas em 3 níveis.</p>
+                        </div>
+
+                        <div class="glass-card p-6 rounded-2xl border border-slate-800">
+                            <div class="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xl mb-4 border border-emerald-500/20">
+                                <i class="fa-solid fa-chart-line"></i>
+                            </div>
+                            <h3 class="text-lg font-bold text-white mb-2">Security Score & Fix Plan</h3>
+                            <p class="text-slate-400 text-sm leading-relaxed">Mensure a evolução da segurança da aplicação em tempo real com o Security Score e planos de remediação com código.</p>
+                        </div>
+                    </div>
+
+                    <!-- CTA Banner for TCC Presentation -->
+                    <div class="glass-panel p-8 rounded-2xl border-indigo-500/30 flex flex-col md:flex-row items-center justify-between gap-6 bg-gradient-to-r from-indigo-950/40 to-slate-900/60">
+                        <div>
+                            <h3 class="text-2xl font-bold text-white mb-2">Pronto para testar a demonstração interativa?</h3>
+                            <p class="text-slate-300 text-sm max-w-xl">Veja como o SentinelAI transforma alertas brutos de scanners em diagnósticos claros e aplica correções automáticas.</p>
+                        </div>
+                        <button onclick="openDemoScan()" class="px-6 py-3 rounded-xl bg-white text-slate-900 font-bold hover:bg-slate-200 transition shadow-lg flex items-center gap-2 text-sm whitespace-nowrap">
+                            <i class="fa-solid fa-play text-indigo-600"></i> Executar Demonstração
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- VIEW 2 & 3: TERMINAL / SCANNING / FIXING SIMULATOR ---
+        function renderTerminalView(title, iconClass, logsArray) {
+            return `
+                <div class="max-w-3xl mx-auto pt-16 animate-fade-in text-center">
+                    <div class="relative w-28 h-28 mx-auto mb-8">
+                        <div class="absolute inset-0 border-4 border-slate-800 rounded-full"></div>
+                        <div class="absolute inset-0 border-4 border-indigo-500 rounded-full border-t-transparent animate-spin"></div>
+                        <div class="absolute inset-0 flex items-center justify-center text-3xl">
+                            <i class="fa-solid ${iconClass}"></i>
+                        </div>
+                    </div>
+                    <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-2">${title}</h2>
+                    <p class="text-slate-400 font-mono text-sm mb-8">${state.targetUrl}</p>
+
+                    <div class="glass-panel text-left w-full h-72 rounded-2xl p-6 overflow-y-auto border-slate-800 shadow-2xl flex flex-col justify-between">
+                        <div id="terminal-log-output" class="terminal-text text-xs sm:text-sm space-y-2">
+                            ${logsArray.map(log => `<div><span class="text-slate-500">[${log.time}]</span> <span class="${log.color || 'text-slate-300'}">${log.text}</span></div>`).join('')}
+                        </div>
+                        <div class="pt-4 border-t border-slate-800 flex items-center justify-between text-xs text-slate-500 font-mono">
+                            <span>Status: Processing Cloud Pipeline...</span>
+                            <span class="animate-pulse text-indigo-400">● Live Stream</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function handleStartScan() {
+            const input = document.getElementById('home-url-input');
+            if (input && input.value) {
+                state.targetUrl = input.value;
+            }
+            state.isFixed = false;
+            state.currentView = 'scanning';
+            state.scanLogs = [];
+            render();
+            runScanSimulation();
+        }
+
+        function runScanSimulation() {
+            const steps = [
+                { text: 'Conectando ao SentinelAI Security Orchestrator (AWS Lambda)...', color: 'text-indigo-400' },
+                { text: 'Validando autorização do alvo e escopo do SentinelLab...', color: 'text-slate-300' },
+                { text: 'Executando DAST Scanner (OWASP ZAP Engine v2.14)...', color: 'text-cyan-400' },
+                { text: 'Alerta Detectado: SQL Injection em /api/v1/auth/login (High Severity)', color: 'text-red-400' },
+                { text: 'Alerta Detectado: Stored XSS em /dashboard/profile/bio (Medium Severity)', color: 'text-amber-400' },
+                { text: 'Executando SAST Analyzer & SCA Package Checker...', color: 'text-cyan-400' },
+                { text: 'Enviando contexto bruto para IA Security Engine (RAG + LLM)...', color: 'text-purple-400' },
+                { text: 'Gerando explicações em 3 níveis e plano de correção estruturado...', color: 'text-emerald-400' },
+                { text: 'Análise concluída com sucesso! Redirecionando para o Dashboard...', color: 'text-emerald-400 font-bold' }
+            ];
+
+            let i = 0;
+            const interval = setInterval(() => {
+                if (i < steps.length) {
+                    const time = new Date().toLocaleTimeString();
+                    state.scanLogs.push({ time, ...steps[i] });
+                    render();
+                    const container = document.getElementById('terminal-log-output');
+                    if (container) container.scrollTop = container.scrollHeight;
+                    i++;
+                } else {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        state.currentView = 'dashboard';
+                        render();
+                    }, 1000);
+                }
+            }, 600);
+        }
+
+        function runFixSimulation() {
+            const steps = [
+                { text: 'Iniciando pipeline de Auto-Remediation na nuvem...', color: 'text-indigo-400' },
+                { text: 'Refatorando código Java/Python: substituindo concatenação por Prepared Statements...', color: 'text-emerald-400' },
+                { text: 'Aplicando DOMPurify e sanitização estrita para vulnerabilidades XSS...', color: 'text-emerald-400' },
+                { text: 'Configurando Helmet middleware e cabeçalhos de segurança HTTP (CSP, HSTS)...', color: 'text-emerald-400' },
+                { text: 'Atualizando dependência vulnerável lodash@4.17.15 para lodash@4.17.21...', color: 'text-emerald-400' },
+                { text: 'Executando Verify-Scan automatizado nos endpoints corrigidos...', color: 'text-cyan-400' },
+                { text: 'Verify-Scan concluído: Zero vulnerabilidades remanescentes.', color: 'text-emerald-400 font-bold' },
+                { text: 'Atualizando Security Score de 74 para 99/100 (SECURE STATE)...', color: 'text-emerald-400 font-bold' }
+            ];
+
+            let i = 0;
+            const interval = setInterval(() => {
+                if (i < steps.length) {
+                    const time = new Date().toLocaleTimeString();
+                    state.fixLogs.push({ time, ...steps[i] });
+                    render();
+                    const container = document.getElementById('terminal-log-output');
+                    if (container) container.scrollTop = container.scrollHeight;
+                    i++;
+                } else {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        state.isFixed = true;
+                        state.currentView = 'dashboard';
+                        render();
+                    }, 1200);
+                }
+            }, 550);
+        }
+
+        function triggerApplyFixPlan() {
+            state.currentView = 'fixing';
+            state.fixLogs = [];
+            render();
+            runFixSimulation();
+        }
+
+        function triggerResetDemo() {
+            state.isFixed = false;
+            state.currentView = 'dashboard';
+            render();
+        }
+
+        // --- VIEW 4: INTERACTIVE DASHBOARD ---
+        function renderDashboardView() {
+            const score = state.isFixed ? 99 : 74;
+            const scoreColor = state.isFixed ? 'text-emerald-400' : 'text-amber-400';
+            const scoreBgBorder = state.isFixed ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-amber-500/30 bg-amber-500/10';
+            const scoreLabel = state.isFixed ? 'SECURE STATE (LOW RISK)' : 'MODERATE RISK DETECTED';
+
+            const activeVuln = vulnerabilitiesData.find(v => v.id === state.selectedVulnId) || vulnerabilitiesData[0];
+
+            return `
+                <div class="max-w-7xl mx-auto animate-fade-in pb-12">
+                    <!-- Top Status Banner if Fixed -->
+                    ${state.isFixed ? `
+                        <div class="mb-6 p-4 rounded-2xl glass-panel border-emerald-500/40 bg-emerald-950/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg border border-emerald-500/30">
+                                    <i class="fa-solid fa-shield-check"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-white font-bold text-sm">Plataforma em Estado Seguro</h4>
+                                    <p class="text-slate-300 text-xs">Todas as vulnerabilidades foram mitigadas com sucesso pelo SentinelAI Fix Plan.</p>
+                                </div>
+                            </div>
+                            <button onclick="triggerResetDemo()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition flex items-center gap-2">
+                                <i class="fa-solid fa-rotate-right"></i> Simular Novo Ataque
+                            </button>
+                        </div>
+                    ` : ''}
+
+                    <!-- Dashboard Header -->
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                        <div>
+                            <h1 class="text-2xl sm:text-3xl font-extrabold text-white mb-1">Painel de Análise de Segurança</h1>
+                            <div class="flex items-center gap-3 text-xs sm:text-sm text-slate-400 font-mono">
+                                <span><i class="fa-solid fa-bullseye text-indigo-400 mr-1.5"></i> Target: ${state.targetUrl}</span>
+                                <span>•</span>
+                                <span><i class="fa-solid fa-clock text-slate-500 mr-1.5"></i> Último Scan: Há 2 min</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 w-full md:w-auto">
+                            ${!state.isFixed ? `
+                                <button onclick="triggerApplyFixPlan()" class="flex-1 md:flex-initial px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs sm:text-sm transition shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i> Aplicar Correção IA & Re-Scan
+                                </button>
+                            ` : ''}
+                            <button onclick="openDemoScan()" class="px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs sm:text-sm font-semibold border border-slate-700 transition flex items-center gap-2">
+                                <i class="fa-solid fa-radar"></i> Novo Scan
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Main Grid -->
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        
+                        <!-- Col 1: Security Score & Summary (Span 4) -->
+                        <div class="lg:col-span-4 flex flex-col gap-6">
+                            <!-- Security Score Card -->
+                            <div class="glass-panel p-6 rounded-2xl border-slate-800 flex flex-col items-center text-center relative overflow-hidden">
+                                <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl"></div>
+                                <span class="text-xs font-mono text-slate-400 uppercase tracking-widest mb-4">Security Score (OWASP)</span>
+                                
+                                <div class="w-36 h-36 rounded-full flex flex-col items-center justify-center border-8 ${state.isFixed ? 'border-emerald-500/30 text-emerald-400' : 'border-amber-500/30 text-amber-400'} font-extrabold text-5xl mb-4 shadow-inner relative">
+                                    <span>${score}</span>
+                                    <span class="text-[10px] font-normal text-slate-400 font-mono mt-1">/ 100 PONTOS</span>
+                                </div>
+
+                                <div class="px-3 py-1 rounded-full text-xs font-bold border ${scoreBgBorder} ${scoreColor} mb-6">
+                                    ${scoreLabel}
+                                </div>
+
+                                <div class="w-full grid grid-cols-3 gap-2 pt-4 border-t border-slate-800 text-center font-mono text-xs">
+                                    <div>
+                                        <span class="block text-slate-500">Critical</span>
+                                        <span class="text-base font-bold text-red-400">${state.isFixed ? '0' : '1'}</span>
+                                    </div>
+                                    <div>
+                                        <span class="block text-slate-500">High</span>
+                                        <span class="text-base font-bold text-amber-400">${state.isFixed ? '0' : '1'}</span>
+                                    </div>
+                                    <div>
+                                        <span class="block text-slate-500">Medium</span>
+                                        <span class="text-base font-bold text-blue-400">${state.isFixed ? '0' : '2'}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Vulnerabilities List Selector -->
+                            <div class="glass-panel p-5 rounded-2xl border-slate-800 flex-grow">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="font-bold text-sm text-white">Vulnerabilidades Identificadas</h3>
+                                    <span class="text-xs font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-400">${state.isFixed ? '0 Ativas' : '4 Ativas'}</span>
+                                </div>
+                                <div class="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                                    ${state.isFixed ? `
+                                        <div class="text-center py-12 text-slate-500 text-sm">
+                                            <i class="fa-solid fa-circle-check text-emerald-500 text-2xl mb-2 block"></i>
+                                            Nenhuma vulnerabilidade ativa no momento.
+                                        </div>
+                                    ` : vulnerabilitiesData.map(vuln => `
+                                        <div onclick="selectVulnerability('${vuln.id}')" 
+                                             class="glass-card p-3.5 rounded-xl cursor-pointer flex items-center justify-between border ${state.selectedVulnId === vuln.id ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-800'}">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-2.5 h-10 rounded-full ${vuln.severityBg} ${vuln.severityColor} flex-shrink-0"></div>
+                                                <div>
+                                                    <h4 class="font-semibold text-xs sm:text-sm text-white">${vuln.type}</h4>
+                                                    <span class="text-[11px] text-slate-400 font-mono">${vuln.endpoint}</span>
+                                                </div>
+                                            </div>
+                                            <span class="text-[10px] font-bold px-2 py-0.5 rounded ${vuln.severityBg} ${vuln.severityColor}">${vuln.severity}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Col 2: AI Security Explainer / Details (Span 8) -->
+                        <div class="lg:col-span-8 glass-panel rounded-2xl border-slate-800 flex flex-col overflow-hidden">
+                            ${state.isFixed ? renderSecureExplainerState() : renderVulnerableExplainerState(activeVuln)}
+                        </div>
+
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderVulnerableExplainerState(vuln) {
+            return `
+                <!-- Explainer Header -->
+                <div class="p-6 border-b border-slate-800 bg-slate-900/50">
+                    <div class="flex flex-wrap items-center gap-2 mb-3">
+                        <span class="px-2.5 py-1 rounded text-xs font-bold ${vuln.severityBg} ${vuln.severityColor}">${vuln.severity}</span>
+                        <span class="px-2.5 py-1 rounded text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-mono">${vuln.cwe}</span>
+                        <span class="px-2.5 py-1 rounded text-xs font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20 font-mono"><i class="fa-solid fa-robot mr-1"></i> IA Confidence: ${vuln.confidence}</span>
+                    </div>
+                    <h2 class="text-xl sm:text-2xl font-extrabold text-white mb-2">${vuln.type}</h2>
+                    <div class="flex flex-wrap items-center gap-4 text-xs font-mono text-slate-400">
+                        <span><strong class="text-slate-500">Endpoint:</strong> ${vuln.endpoint}</span>
+                        <span>•</span>
+                        <span><strong class="text-slate-500">Parâmetro:</strong> ${vuln.parameter}</span>
+                    </div>
+                </div>
+
+                <!-- Explanation Tabs -->
+                <div class="flex border-b border-slate-800 bg-slate-900/20">
+                    <button onclick="switchTab('beginner')" class="flex-1 py-3.5 text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 ${state.activeTab === 'beginner' ? 'text-indigo-400 border-b-2 border-indigo-500 bg-indigo-500/5' : 'text-slate-400 hover:text-slate-200'}">
+                        <i class="fa-solid fa-graduation-cap"></i> Modo Iniciante
+                    </button>
+                    <button onclick="switchTab('technical')" class="flex-1 py-3.5 text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 ${state.activeTab === 'technical' ? 'text-indigo-400 border-b-2 border-indigo-500 bg-indigo-500/5' : 'text-slate-400 hover:text-slate-200'}">
+                        <i class="fa-solid fa-microchip"></i> Modo Técnico
+                    </button>
+                    <button onclick="switchTab('remediation')" class="flex-1 py-3.5 text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 ${state.activeTab === 'remediation' ? 'text-indigo-400 border-b-2 border-indigo-500 bg-indigo-500/5' : 'text-slate-400 hover:text-slate-200'}">
+                        <i class="fa-solid fa-wrench"></i> Fix Plan (Dev)
+                    </button>
+                </div>
+
+                <!-- Tab Content Area -->
+                <div class="p-6 flex-grow overflow-y-auto max-h-[500px]">
+                    ${getTabContentHtml(vuln)}
+                </div>
+            `;
+        }
+
+        function renderSecureExplainerState() {
+            return `
+                <div class="p-12 flex flex-col items-center justify-center text-center h-full my-auto animate-fade-in">
+                    <div class="w-20 h-20 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-3xl mb-6 border border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+                        <i class="fa-solid fa-shield-heart"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-white mb-2">Ambiente Protegido e Auditado</h3>
+                    <p class="text-slate-400 text-sm max-w-md mb-8 leading-relaxed">
+                        O SentinelAI aplicou as correções estruturais baseadas nas diretrizes OWASP. Os scanners rodaram novamente e confirmaram a ausência de brechas.
+                    </p>
+                    <div class="w-full max-w-lg glass-panel p-4 rounded-xl border-slate-800 text-left font-mono text-xs text-slate-300 space-y-2">
+                        <div class="text-emerald-400 font-bold mb-2"><i class="fa-solid fa-check mr-2"></i>Cloud Remediation Log:</div>
+                        <div>✓ Prepared statements implementados com sucesso</div>
+                        <div>✓ Sanitização DOMPurify ativa contra Stored XSS</div>
+                        <div>✓ Cabeçalhos de segurança (Helmet/CSP/HSTS) ativos</div>
+                        <div>✓ Dependências atualizadas sem CVEs abertas</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getTabContentHtml(vuln) {
+            if (state.activeTab === 'beginner') {
+                return `
+                    <div class="animate-fade-in space-y-4">
+                        <div class="p-4 rounded-xl glass-card border-indigo-500/20 bg-indigo-500/5">
+                            <h4 class="text-indigo-300 font-bold text-sm mb-2 flex items-center gap-2"><i class="fa-solid fa-info-circle"></i> Explicação Simplificada</h4>
+                            <p class="text-slate-300 text-sm leading-relaxed">${vuln.ai_beginner}</p>
+                        </div>
+                        <div class="p-4 rounded-xl glass-card border-slate-800">
+                            <h5 class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Impacto no Negócio</h5>
+                            <p class="text-slate-400 text-xs leading-relaxed">Vulnerabilidades desse nível podem comprometer a confidencialidade de dados de clientes, gerar multas de conformidade (LGPD/GDPR) e danificar a reputação da marca.</p>
+                        </div>
+                    </div>
+                `;
+            } else if (state.activeTab === 'technical') {
+                return `
+                    <div class="animate-fade-in space-y-4">
+                        <div class="p-4 rounded-xl glass-card border-slate-800">
+                            <h4 class="text-white font-bold text-sm mb-2 flex items-center gap-2"><i class="fa-solid fa-code-branch text-cyan-400"></i> Mecânica da Falha (Root Cause)</h4>
+                            <p class="text-slate-300 text-sm leading-relaxed">${vuln.ai_technical}</p>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="p-4 rounded-xl glass-card border-slate-800">
+                                <h5 class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Vetor de Ataque</h5>
+                                <p class="text-slate-400 text-xs leading-relaxed">Manipulação direta de parâmetros HTTP POST/GET combinada com ausência de validação de tipo e sanitização no backend.</p>
+                            </div>
+                            <div class="p-4 rounded-xl glass-card border-slate-800">
+                                <h5 class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Classificação OWASP</h5>
+                                <p class="text-slate-400 text-xs leading-relaxed">A03:2021 - Injection / A07:2021 - Cross-Site Scripting (XSS)</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="animate-fade-in space-y-4">
+                        <div class="flex justify-between items-center">
+                            <h4 class="text-white font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-emerald-400"></i> Security Fix Plan (Gerado por RAG + LLM)</h4>
+                            <button onclick="copyFixCode()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono border border-slate-700 transition flex items-center gap-1.5">
+                                <i class="fa-regular fa-copy"></i> Copiar Código
+                            </button>
+                        </div>
+                        <div class="bg-[#090d16] border border-slate-800 rounded-xl p-4 overflow-x-auto shadow-inner">
+                            <pre id="fix-code-pre"><code class="text-xs sm:text-sm font-mono text-emerald-400 leading-relaxed">${escapeHtml(vuln.ai_remediation)}</code></pre>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function selectVulnerability(id) {
+            state.selectedVulnId = id;
+            render();
+        }
+
+        function switchTab(tab) {
+            state.activeTab = tab;
+            render();
+        }
+
+        function copyFixCode() {
+            const vuln = vulnerabilitiesData.find(v => v.id === state.selectedVulnId);
+            if (vuln) {
+                const textarea = document.createElement('textarea');
+                textarea.value = vuln.ai_remediation;
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    alertCustom('Código de remediação copiado para a área de transferência!');
+                } catch (err) {
+                    console.error('Erro ao copiar', err);
+                }
+                document.body.removeChild(textarea);
+            }
+        }
+
+        function alertCustom(msg) {
+            const div = document.createElement('div');
+            div.className = 'fixed bottom-6 right-6 z-50 glass-panel bg-indigo-950/90 border-indigo-500/50 text-white px-6 py-3 rounded-xl shadow-2xl text-sm animate-fade-in flex items-center gap-3';
+            div.innerHTML = `<i class="fa-solid fa-circle-check text-indigo-400 text-lg"></i> <span>${msg}</span>`;
+            document.body.appendChild(div);
+            setTimeout(() => {
+                div.remove();
+            }, 3000);
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        // --- VIEW 5: SENTINELLAB ---
+        function renderLabView() {
+            return `
+                <div class="max-w-6xl mx-auto pt-6 pb-16 animate-fade-in">
+                    <div class="mb-10 text-center max-w-2xl mx-auto">
+                        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-panel text-indigo-300 text-xs font-semibold mb-4 border-indigo-500/30">
+                            <i class="fa-solid fa-flask text-indigo-400"></i> Ambiente Controlado para TCC
+                        </div>
+                        <h1 class="text-3xl sm:text-4xl font-extrabold text-white mb-4">SentinelLab</h1>
+                        <p class="text-slate-400 text-sm sm:text-base leading-relaxed">
+                            Para garantir rigor acadêmico e conformidade legal, o SentinelAI foi testado e validado em um laboratório Dockerizado contendo aplicações propositalmente vulneráveis.
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div class="glass-card p-6 rounded-2xl border border-slate-800 flex flex-col justify-between">
+                            <div>
+                                <span class="text-[10px] font-mono px-2 py-1 rounded bg-red-500/10 text-red-400 border border-red-500/20 font-bold mb-3 inline-block">CRITICAL RISK</span>
+                                <h3 class="text-lg font-bold text-white mb-2">vulnerable-auth-api</h3>
+                                <p class="text-slate-400 text-xs leading-relaxed mb-4">Aplicação Node.js/Express com falhas severas de SQL Injection e autenticação quebrada.</p>
+                            </div>
+                            <button onclick="startSpecificLabScan('https://sentinellab.local/auth-api')" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition border border-slate-700 flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-radar text-indigo-400"></i> Analisar Este Alvo
+                            </button>
+                        </div>
+
+                        <div class="glass-card p-6 rounded-2xl border border-slate-800 flex flex-col justify-between">
+                            <div>
+                                <span class="text-[10px] font-mono px-2 py-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold mb-3 inline-block">HIGH RISK</span>
+                                <h3 class="text-lg font-bold text-white mb-2">vulnerable-shop-ui</h3>
+                                <p class="text-slate-400 text-xs leading-relaxed mb-4">Plataforma E-commerce contendo Stored XSS, IDOR e dependências desatualizadas.</p>
+                            </div>
+                            <button onclick="startSpecificLabScan('https://sentinellab.local/shop-ui')" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition border border-slate-700 flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-radar text-indigo-400"></i> Analisar Este Alvo
+                            </button>
+                        </div>
+
+                        <div class="glass-card p-6 rounded-2xl border border-slate-800 flex flex-col justify-between">
+                            <div>
+                                <span class="text-[10px] font-mono px-2 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-bold mb-3 inline-block">MEDIUM RISK</span>
+                                <h3 class="text-lg font-bold text-white mb-2">vulnerable-cloud-gateway</h3>
+                                <p class="text-slate-400 text-xs leading-relaxed mb-4">API Gateway simulado com ausência de cabeçalhos de segurança e rate limiting.</p>
+                            </div>
+                            <button onclick="startSpecificLabScan('https://sentinellab.local/gateway')" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition border border-slate-700 flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-radar text-indigo-400"></i> Analisar Este Alvo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function startSpecificLabScan(url) {
+            state.targetUrl = url;
+            state.currentView = 'scanning';
+            state.scanLogs = [];
+            render();
+            runScanSimulation();
+        }
+
+        // --- VIEW 6: CLOUD ARCHITECTURE ---
+        function renderArchitectureView() {
+            return `
+                <div class="max-w-5xl mx-auto pt-6 pb-16 animate-fade-in">
+                    <div class="mb-10 text-center max-w-2xl mx-auto">
+                        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-panel text-indigo-300 text-xs font-semibold mb-4 border-indigo-500/30">
+                            <i class="fa-solid fa-cloud text-cyan-400"></i> Cloud Computing & AWS Infrastructure
+                        </div>
+                        <h1 class="text-3xl sm:text-4xl font-extrabold text-white mb-4">Arquitetura Distribuída SentinelAI</h1>
+                        <p class="text-slate-400 text-sm sm:text-base leading-relaxed">
+                            Desenvolvido com padrão Serverless e microsserviços para garantir escalabilidade, resiliência e alta performance.
+                        </p>
+                    </div>
+
+                    <div class="glass-panel p-8 rounded-2xl border-slate-800 space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="p-5 rounded-xl glass-card border-slate-800">
+                                <span class="text-xs font-mono text-indigo-400 block mb-1">01. FRONTEND LAYER</span>
+                                <h4 class="text-white font-bold mb-2">Amazon S3 + CloudFront</h4>
+                                <p class="text-slate-400 text-xs leading-relaxed">Interface em React/Next.js hospedada em bucket S3 e distribuída globalmente via CDN com SSL/TLS.</p>
+                            </div>
+                            <div class="p-5 rounded-xl glass-card border-slate-800">
+                                <span class="text-xs font-mono text-cyan-400 block mb-1">02. ORCHESTRATION LAYER</span>
+                                <h4 class="text-white font-bold mb-2">API Gateway + AWS Lambda</h4>
+                                <p class="text-slate-400 text-xs leading-relaxed">Orquestrador em FastAPI (Python) responsável por receber requisições e disparar scanners DAST/SAST.</p>
+                            </div>
+                            <div class="p-5 rounded-xl glass-card border-slate-800">
+                                <span class="text-xs font-mono text-emerald-400 block mb-1">03. AI & RAG ENGINE</span>
+                                <h4 class="text-white font-bold mb-2">Amazon Bedrock + LLM</h4>
+                                <p class="text-slate-400 text-xs leading-relaxed">Motor de inteligência artificial complementado por base vetorial OWASP/CWE para análises contextuais.</p>
+                            </div>
+                        </div>
+
+                        <div class="p-6 rounded-xl bg-slate-900/80 border border-slate-800 font-mono text-xs text-slate-300 space-y-2">
+                            <div class="text-indigo-400 font-bold mb-3"><i class="fa-solid fa-diagram-project mr-2"></i>Fluxo de Dados do Pipeline:</div>
+                            <div class="text-slate-400">User URL ➔ CloudFront ➔ API Gateway ➔ Security Orchestrator (DAST/SAST) ➔ AI Engine (RAG + LLM) ➔ Risk Assessment & Fix Plan ➔ Dashboard UI</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- VIEW 7: TCC DOCS ---
+        function renderDocsView() {
+            return `
+                <div class="max-w-4xl mx-auto pt-6 pb-16 animate-fade-in">
+                    <div class="mb-10 text-center">
+                        <h1 class="text-3xl font-extrabold text-white mb-2">Documentação do TCC</h1>
+                        <p class="text-slate-400 text-sm">Resumo acadêmico da pesquisa e metodologia da plataforma SentinelAI.</p>
+                    </div>
+
+                    <div class="glass-panel p-8 rounded-2xl border-slate-800 space-y-6 text-sm text-slate-300 leading-relaxed">
+                        <div>
+                            <h3 class="text-white font-bold text-base mb-2 text-indigo-400">Problemática e Justificativa</h3>
+                            <p>Scanners tradicionais de segurança geram grande volume de falsos positivos e alertas técnicos complexos que dificultam a priorização por parte de desenvolvedores. O SentinelAI resolve esse gargalo unindo ferramentas automatizadas de varredura à interpretação contextual via Inteligência Artificial.</p>
+                        </div>
+                        <div>
+                            <h3 class="text-white font-bold text-base mb-2 text-indigo-400">Pergunta de Pesquisa</h3>
+                            <p class="italic text-slate-200">"Como técnicas de Inteligência Artificial combinadas com Geração Aumentada por Recuperação (RAG) podem otimizar a interpretação, priorização e correção de vulnerabilidades detectadas por scanners de segurança tradicionais em aplicações web?"</p>
+                        </div>
+                        <div>
+                            <h3 class="text-white font-bold text-base mb-2 text-indigo-400">Resultados Esperados</h3>
+                            <p>Demonstrar empiricamente através do SentinelLab que a utilização do Security Fix Plan reduz o tempo médio de remediação de falhas OWASP Top 10 e eleva o Security Score de aplicações web de forma mensurável.</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Initialize on window load
